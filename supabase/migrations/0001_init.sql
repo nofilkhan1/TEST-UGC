@@ -97,7 +97,7 @@ create index if not exists notifications_user_id_idx on public.notifications (us
 -- Helper: current user's role (SECURITY DEFINER so RLS policies can read it
 -- without recursive RLS on profiles).
 -- ============================================================================
-create or replace function public.current_role()
+create or replace function public.user_role()
 returns text
 language sql
 stable
@@ -151,7 +151,7 @@ drop policy if exists creator_profiles_insert_self on public.creator_profiles;
 create policy creator_profiles_insert_self
   on public.creator_profiles for insert
   to authenticated
-  with check (profile_id = auth.uid() and public.current_role() = 'creator');
+  with check (profile_id = auth.uid() and public.user_role() = 'creator');
 
 drop policy if exists creator_profiles_update_self on public.creator_profiles;
 create policy creator_profiles_update_self
@@ -172,7 +172,7 @@ drop policy if exists brand_profiles_insert_self on public.brand_profiles;
 create policy brand_profiles_insert_self
   on public.brand_profiles for insert
   to authenticated
-  with check (profile_id = auth.uid() and public.current_role() = 'brand');
+  with check (profile_id = auth.uid() and public.user_role() = 'brand');
 
 drop policy if exists brand_profiles_update_self on public.brand_profiles;
 create policy brand_profiles_update_self
@@ -195,7 +195,7 @@ drop policy if exists campaigns_insert_brand on public.campaigns;
 create policy campaigns_insert_brand
   on public.campaigns for insert
   to authenticated
-  with check (brand_id = auth.uid() and public.current_role() = 'brand');
+  with check (brand_id = auth.uid() and public.user_role() = 'brand');
 
 drop policy if exists campaigns_update_brand on public.campaigns;
 create policy campaigns_update_brand
@@ -230,7 +230,7 @@ drop policy if exists applications_insert_creator on public.applications;
 create policy applications_insert_creator
   on public.applications for insert
   to authenticated
-  with check (creator_id = auth.uid() and public.current_role() = 'creator');
+  with check (creator_id = auth.uid() and public.user_role() = 'creator');
 
 -- creator edits own application (pitch / price); cannot change status
 drop policy if exists applications_update_creator on public.applications;
