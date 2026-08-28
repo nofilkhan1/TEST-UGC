@@ -1,23 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import type { Campaign, Application, Profile, CreatorProfile } from "@/lib/types";
+import type { Campaign, CampaignStatus } from "@/lib/types";
 
-interface ApplicantView extends Application {
-  creator_name: string | null;
-  creator: CreatorProfile | null;
-}
+type Filter = "all" | CampaignStatus;
 
 export default function BrandDashboard() {
   const supabase = createClient();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [applicants, setApplicants] = useState<ApplicantView[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
-  async function loadCampaigns() {
+  async function load() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -27,60 +25,42 @@ export default function BrandDashboard() {
       .select("*")
       .eq("brand_id", user.id)
       .order("created_at", { ascending: false });
-    setCampaigns((data as Campaign[]) ?? []);
-    setLoading(false);
-    if (!selectedId && (data as Campaign[])?.length) {
-      setSelectedId((data as Campaign[])[0].id);
+    const list = (data as Campaign[]) ?? [];
+    setCampaigns(list);
+
+    if (list.length) {
+      const ids = list.map((c) => c.id);
+      const { data: apps } = await supabase
+        .from("applications")
+        .select("campaign_id")
+        .in("campaign_id", ids);
+      const map: Record<string, number> = {};
+      (apps as { campaign_id: string }[] | null)?.forEach((a) => {
+        map[a.campaign_id] = (map[a.campaign_id] ?? 0) + 1;
+      });
+      setCounts(map);
     }
+    setLoading(false);
   }
 
   useEffect(() => {
-    loadCampaigns();
+    load();
   }, []);
 
-  useEffect(() => {
-    if (selectedId) loadApplicants(selectedId);
-  }, [selectedId]);
-
-  async function loadApplicants(campaignId: string) {
-    const { data: apps } = await supabase
-      .from("applications")
-      .select("*")
-      .eq("campaign_id", campaignId)
-      .order("created_at", { ascending: true });
-    const list = (apps as Application[]) ?? [];
-    if (!list.length) {
-      setApplicants([]);
-      return;
-    }
-    const ids = list.map((a) => a.creator_id);
-    const { data: profs } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", ids);
-    const { data: cprofs } = await supabase
-      .from("creator_profiles")
-      .select("*")
-      .in("profile_id", ids);
-    const profMap = new Map((profs as Profile[] | null)?.map((p) => [p.id, p]));
-    const cMap = new Map(
-      (cprofs as CreatorProfile[] | null)?.map((c) => [c.profile_id, c]),
-    );
-    setApplicants(
-      list.map((a) => ({
-        ...a,
-        creator_name: profMap.get(a.creator_id)?.full_name ?? null,
-        creator: cMap.get(a.creator_id) ?? null,
-      })),
-    );
+  async function setStatus(id: string, status: CampaignStatus) {
+    await supabase.from("campaigns").update({ status }).eq("id", id);
+    load();
   }
 
-  async function setStatus(appId: string, status: "approved" | "rejected") {
-    await supabase.from("applications").update({ status }).eq("id", appId);
-    if (selectedId) loadApplicants(selectedId);
-  }
+  const filtered =
+    filter === "all" ? campaigns : campaigns.filter((c) => c.status === filter);
 
-  const selected = campaigns.find((c) => c.id === selectedId);
+  const tabs: { key: Filter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "draft", label: "Draft" },
+    { key: "live", label: "Live" },
+    { key: "closed", label: "Closed" },
+  ];
 
   return (
     <div>
@@ -92,7 +72,7 @@ export default function BrandDashboard() {
           </p>
         </div>
         <button onClick={() => setShowForm(true)} className="btn btn-primary">
-          + New campaign
+          + New Campaign
         </button>
       </div>
 
@@ -101,127 +81,112 @@ export default function BrandDashboard() {
           onClose={() => setShowForm(false)}
           onCreated={() => {
             setShowForm(false);
-            loadCampaigns();
+            load();
           }}
         />
       )}
 
       {loading ? (
         <p className="mt-10 text-ink-soft">Loading…</p>
+      ) : campaigns.length === 0 ? (
+        <div className="card mt-10 flex flex-col items-center p-12 text-center">
+          <div className="text-4xl">🚀</div>
+          <h3 className="mt-3 text-lg font-semibold">No campaigns yet</h3>
+          <p className="mt-1 max-w-sm text-sm text-ink-soft">
+            Create your first campaign and creators will start applying to it.
+          </p>
+          <button onClick={() => setShowForm(true)} className="btn btn-primary mt-5">
+            + New Campaign
+          </button>
+        </div>
       ) : (
-        <div className="mt-8 grid gap-6 md:grid-cols-[320px_1fr]">
-          {/* Campaign list */}
-          <div className="space-y-3">
-            {campaigns.length === 0 && (
-              <div className="card p-6 text-sm text-ink-soft">
-                No campaigns yet. Create your first one.
-              </div>
-            )}
-            {campaigns.map((c) => (
+        <>
+          <div className="mt-6 flex gap-2">
+            {tabs.map((t) => (
               <button
-                key={c.id}
-                onClick={() => setSelectedId(c.id)}
-                className={`card w-full p-4 text-left transition ${
-                  c.id === selectedId ? "ring-2 ring-violet" : "hover:shadow-pop"
+                key={t.key}
+                onClick={() => setFilter(t.key)}
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                  filter === t.key
+                    ? "bg-ink text-white"
+                    : "bg-mist-2 text-ink-soft hover:text-ink"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="chip capitalize">{c.platform}</span>
-                  <StatusBadge status={c.status} />
-                </div>
-                <h3 className="mt-2 font-semibold">{c.title}</h3>
-                <p className="mt-1 text-xs text-ink-2">
-                  {c.num_posts_required} post{c.num_posts_required > 1 ? "s" : ""} required
-                </p>
+                {t.label}
+                {t.key !== "all" &&
+                  ` (${campaigns.filter((c) => c.status === t.key).length})`}
               </button>
             ))}
           </div>
 
-          {/* Applicants */}
-          <div>
-            {selected ? (
-              <>
-                <h2 className="text-xl font-semibold">{selected.title}</h2>
-                <p className="mt-1 text-sm text-ink-soft">{selected.description}</p>
-                <h3 className="mt-6 text-sm font-semibold uppercase tracking-wide text-ink-2">
-                  Applicants ({applicants.length})
-                </h3>
-                <div className="mt-3 space-y-3">
-                  {applicants.length === 0 && (
-                    <div className="card p-6 text-sm text-ink-soft">
-                      No applications yet — share your campaign link to get creators applying.
-                    </div>
-                  )}
-                  {applicants.map((a) => (
-                    <div key={a.id} className="card p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{a.creator_name}</span>
-                            <StatusBadge status={a.status} />
-                          </div>
-                          {a.creator?.bio && (
-                            <p className="mt-1 text-sm text-ink-soft">{a.creator.bio}</p>
-                          )}
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-ink-2">
-                            {a.creator?.instagram_handle && (
-                              <span className="chip">IG {a.creator.instagram_handle}</span>
-                            )}
-                            {a.creator?.tiktok_handle && (
-                              <span className="chip">TT {a.creator.tiktok_handle}</span>
-                            )}
-                            {a.creator?.portfolio_url && (
-                              <a
-                                href={a.creator.portfolio_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="chip hover:bg-mist"
-                              >
-                                Portfolio ↗
-                              </a>
-                            )}
-                          </div>
-                          {a.pitch && (
-                            <p className="mt-2 text-sm italic text-ink-soft">
-                              “{a.pitch}”
-                            </p>
-                          )}
-                          {a.price_per_post != null && (
-                            <p className="mt-1 text-sm text-ink-soft">
-                              Asks ${a.price_per_post} / post
-                            </p>
-                          )}
-                        </div>
-                        {a.status === "pending" && (
-                          <div className="flex shrink-0 flex-col gap-2">
-                            <button
-                              onClick={() => setStatus(a.id, "approved")}
-                              className="btn btn-primary px-4 py-1.5 text-sm"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => setStatus(a.id, "rejected")}
-                              className="btn btn-ghost px-4 py-1.5 text-sm"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((c) => (
+              <div key={c.id} className="card flex flex-col p-5">
+                <div className="flex items-center justify-between">
+                  <PlatformPill platform={c.platform} />
+                  <StatusBadge status={c.status} />
                 </div>
-              </>
-            ) : (
-              <div className="card p-8 text-center text-ink-soft">
-                Select a campaign to see applicants.
+                <h3 className="mt-3 text-lg font-semibold">{c.title}</h3>
+                <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
+                  {c.description}
+                </p>
+                <div className="mt-4 flex items-center gap-2 text-xs text-ink-2">
+                  <span className="chip">{c.num_posts_required} posts</span>
+                  <span className="chip">
+                    {c.start_date || c.end_date
+                      ? `${c.start_date ?? "…"} → ${c.end_date ?? "…"}`
+                      : "Flexible dates"}
+                  </span>
+                </div>
+
+                <div className="mt-5 flex items-center justify-between border-t border-ink/5 pt-4">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-mist-2 px-2.5 py-1 text-xs font-semibold text-ink-soft">
+                    👤 {counts[c.id] ?? 0} applicant{counts[c.id] === 1 ? "" : "s"}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {c.status === "draft" && (
+                      <button
+                        onClick={() => setStatus(c.id, "live")}
+                        className="btn btn-primary px-3 py-1.5 text-xs"
+                      >
+                        Publish
+                      </button>
+                    )}
+                    {c.status === "live" && (
+                      <button
+                        onClick={() => setStatus(c.id, "closed")}
+                        className="btn btn-ghost px-3 py-1.5 text-xs"
+                      >
+                        Close
+                      </button>
+                    )}
+                    <Link
+                      href={`/brand/campaigns/${c.id}`}
+                      className="btn btn-ghost px-3 py-1.5 text-xs"
+                    >
+                      View
+                    </Link>
+                  </div>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-        </div>
+        </>
       )}
     </div>
+  );
+}
+
+function PlatformPill({ platform }: { platform: "instagram" | "tiktok" }) {
+  const ig = platform === "instagram";
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+        ig ? "bg-pink-500/10 text-pink-600" : "bg-ink/90 text-white"
+      }`}
+    >
+      {ig ? "📸 Instagram" : "🎵 TikTok"}
+    </span>
   );
 }
 
@@ -230,9 +195,6 @@ function StatusBadge({ status }: { status: string }) {
     draft: "bg-mist-2 text-ink-soft",
     live: "bg-success/15 text-success",
     closed: "bg-ink/10 text-ink-soft",
-    pending: "bg-warning/15 text-warning",
-    approved: "bg-success/15 text-success",
-    rejected: "bg-danger/15 text-danger",
   };
   return (
     <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${map[status]}`}>
@@ -270,6 +232,7 @@ function NewCampaignForm({
       setSaving(false);
       return;
     }
+    // Saves as DRAFT — not visible to creators until Published.
     const { error: err } = await supabase.from("campaigns").insert({
       brand_id: user.id,
       platform,
@@ -278,7 +241,7 @@ function NewCampaignForm({
       num_posts_required: parseInt(numPosts, 10) || 1,
       start_date: startDate || null,
       end_date: endDate || null,
-      status: "live",
+      status: "draft",
     });
     setSaving(false);
     if (err) {
@@ -288,32 +251,47 @@ function NewCampaignForm({
     onCreated();
   }
 
+  const platforms: { key: "instagram" | "tiktok"; icon: string; label: string }[] = [
+    { key: "instagram", icon: "📸", label: "Instagram" },
+    { key: "tiktok", icon: "🎵", label: "TikTok" },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4">
-      <form
-        onSubmit={submit}
-        className="card w-full max-w-lg space-y-4 p-7"
-      >
+      <form onSubmit={submit} className="card w-full max-w-lg space-y-4 p-7">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">New campaign</h2>
           <button type="button" onClick={onClose} className="text-ink-2">
             ✕
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {(["instagram", "tiktok"] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPlatform(p)}
-              className={`rounded-xl border px-4 py-3 text-sm font-semibold capitalize ${
-                platform === p ? "border-violet bg-mist-2" : "border-ink/10"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">Platform</label>
+          <div className="grid grid-cols-2 gap-3">
+            {platforms.map((p) => {
+              const sel = platform === p.key;
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setPlatform(p.key)}
+                  className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-semibold transition ${
+                    sel
+                      ? p.key === "instagram"
+                        ? "border-pink-500 bg-pink-500/10 text-pink-600"
+                        : "border-ink bg-ink/90 text-white"
+                      : "border-ink/10 text-ink-soft hover:border-ink/25"
+                  }`}
+                >
+                  <span>{p.icon}</span>
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
+
         <div>
           <label className="mb-1.5 block text-sm font-medium">Title</label>
           <input
@@ -365,9 +343,12 @@ function NewCampaignForm({
             />
           </div>
         </div>
+        <p className="text-xs text-ink-2">
+          Saves as a draft. Publish it when you&apos;re ready for creators to apply.
+        </p>
         {error && <p className="text-sm text-danger">{error}</p>}
         <button type="submit" disabled={saving} className="btn btn-primary w-full">
-          {saving ? "Publishing…" : "Publish campaign"}
+          {saving ? "Saving…" : "Create draft"}
         </button>
       </form>
     </div>

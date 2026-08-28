@@ -102,9 +102,29 @@ try {
   const { error: updE } = await anonA.from("applications").update({ status: "approved" }).eq("id", appId);
   ok("brand approves application", !updE, updE?.message);
 
-  // 10. Trigger: creator got application_approved notification
+  // 10. Trigger: creator got application_approved notification (human-readable, w/ title)
   const { data: n2 } = await anonB.from("notifications").select().eq("user_id", creatorId).eq("type", "application_approved");
+  const approveMsg = n2?.[0]?.message ?? "";
   ok("trigger: creator notified of approval", (n2?.length ?? 0) >= 1, `count=${n2?.length}`);
+  ok(
+    "approval message is human-readable with campaign title",
+    approveMsg.includes(camp?.title ?? "") && approveMsg.includes("approved"),
+    approveMsg,
+  );
+
+  // 11b. Draft -> Publish -> Close lifecycle (brand)
+  const { data: dCamp, error: dE } = await anonA
+    .from("campaigns")
+    .insert({ brand_id: brandId, platform: "tiktok", title: "Draft Lifecycle", description: "x", status: "draft" })
+    .select()
+    .single();
+  ok("brand creates draft campaign", !dE, dE?.message);
+  const { error: pubE } = await anonA.from("campaigns").update({ status: "live" }).eq("id", dCamp.id);
+  const { data: pubCheck } = await anonA.from("campaigns").select("status").eq("id", dCamp.id).single();
+  ok("publish flips draft -> live", !pubE && pubCheck?.status === "live", pubCheck?.status);
+  await anonA.from("campaigns").update({ status: "closed" }).eq("id", dCamp.id);
+  const { data: closedCheck } = await anonA.from("campaigns").select("status").eq("id", dCamp.id).single();
+  ok("close flips live -> closed", closedCheck?.status === "closed", closedCheck?.status);
 
   // 11. Unique constraint: creator cannot double-apply
   const { error: dupE } = await anonB.from("applications").insert({ campaign_id: campaignId, creator_id: creatorId });
