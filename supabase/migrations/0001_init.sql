@@ -292,23 +292,24 @@ as $$
 declare
   v_brand uuid;
   v_creator_name text;
+  v_title text;
 begin
-  select brand_id into v_brand from public.campaigns where id = new.campaign_id;
+  select brand_id, title into v_brand, v_title from public.campaigns where id = new.campaign_id;
   select full_name into v_creator_name from public.profiles where id = new.creator_id;
 
   if TG_OP = 'INSERT' then
     insert into public.notifications (user_id, type, message, related_application_id)
     values (v_brand, 'application_received',
-            coalesce(v_creator_name, 'A creator') || ' applied to your campaign.', new.id);
+            coalesce(v_creator_name, 'A creator') || ' applied to "' || v_title || '".', new.id);
   elsif TG_OP = 'UPDATE' and old.status is distinct from new.status then
     if new.status = 'approved' then
       insert into public.notifications (user_id, type, message, related_application_id)
       values (new.creator_id, 'application_approved',
-              'Your application was approved!', new.id);
+              'Your application to ''' || v_title || ''' was approved!', new.id);
     elsif new.status = 'rejected' then
       insert into public.notifications (user_id, type, message, related_application_id)
       values (new.creator_id, 'application_rejected',
-              'Your application was not approved this time.', new.id);
+              'Your application to ''' || v_title || ''' was not approved this time.', new.id);
     end if;
   end if;
   return new;
@@ -319,3 +320,53 @@ drop trigger if exists trg_notify_on_application on public.applications;
 create trigger trg_notify_on_application
   after insert or update on public.applications
   for each row execute function public.notify_on_application();
+
+-- ============================================================================
+-- Admin read access (stub /admin page). SECURITY DEFINER helper avoids RLS
+-- recursion when checking the caller's role; lets an admin (role='admin')
+-- read every row across the directory tables. No write policies are added.
+-- ============================================================================
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin'
+  );
+$$;
+
+-- Exposes auth emails to admins only (auth.users is not RLS-readable by the
+-- anon client). Guarded so non-admins get an empty set.
+create or replace function public.admin_user_emails()
+returns table (id uuid, email text)
+language sql
+security definer
+set search_path = public
+as $$
+  select u.id, u.email
+  from auth.users u
+  where public.is_admin();
+$$;
+
+drop policy if exists "Admins read all brand_profiles" on public.brand_profiles;
+create policy "Admins read all brand_profiles"
+  on public.brand_profiles for select to authenticated
+  using (public.is_admin());
+
+drop policy if exists "Admins read all creator_profiles" on public.creator_profiles;
+create policy "Admins read all creator_profiles"
+  on public.creator_profiles for select to authenticated
+  using (public.is_admin());
+
+drop policy if exists "Admins read all campaigns" on public.campaigns;
+create policy "Admins read all campaigns"
+  on public.campaigns for select to authenticated
+  using (public.is_admin());
+
+drop policy if exists "Admins read all applications" on public.applications;
+create policy "Admins read all applications"
+  on public.applications for select to authenticated
+  using (public.is_admin());

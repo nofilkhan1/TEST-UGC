@@ -40,6 +40,7 @@ export async function proxy(request: NextRequest) {
   const isBrandOnly = path.startsWith("/brand");
   const isCreatorOnly =
     path.startsWith("/creator") || path === "/applications";
+  const isAdminOnly = path.startsWith("/admin");
 
   // Authenticated users shouldn't see the auth screens.
   if (user && (path === "/login" || path === "/signup")) {
@@ -58,6 +59,9 @@ export async function proxy(request: NextRequest) {
     }
     if (isCreatorOnly && role !== "creator") {
       return NextResponse.redirect(new URL("/brand/dashboard", request.url));
+    }
+    if (isAdminOnly && role !== "admin") {
+      return NextResponse.redirect(new URL(dashboardFor(role), request.url));
     }
   }
 
