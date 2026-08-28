@@ -12,7 +12,7 @@ export default function HomePage() {
           <span className="text-lg font-bold tracking-tight">SideShift</span>
         </div>
         <nav className="hidden items-center gap-8 text-sm font-medium text-ink-soft md:flex">
-          <Link href="/campaigns" className="hover:text-ink">
+          <Link href="/creator/dashboard" className="hover:text-ink">
             Browse campaigns
           </Link>
           <Link href="/login" className="hover:text-ink">

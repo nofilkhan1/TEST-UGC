@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Campaign, Application } from "@/lib/types";
 
-export default function CampaignDetail() {
+export default function CreatorCampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const supabase = createClient();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
@@ -38,7 +38,7 @@ export default function CampaignDetail() {
           .eq("id", (c as Campaign).brand_id)
           .single();
         setBrandName(
-          (b as BrandProfileName | null)?.company_name ||
+          (b as { company_name: string | null } | null)?.company_name ||
             (p as { full_name: string } | null)?.full_name ||
             "A brand",
         );
@@ -84,42 +84,61 @@ export default function CampaignDetail() {
       .single();
     setSaving(false);
     if (err) {
-      setError(err.message.includes("duplicate") ? "You already applied." : err.message);
+      if (err.message.toLowerCase().includes("duplicate")) {
+        // Race: someone else inserted it (or it existed) — show applied state.
+        const { data: app } = await supabase
+          .from("applications")
+          .select("*")
+          .eq("campaign_id", id)
+          .eq("creator_id", user.id)
+          .maybeSingle();
+        setExisting((app as Application) ?? null);
+        return;
+      }
+      setError(err.message);
       return;
     }
     setExisting((data as Application) ?? null);
   }
 
-  if (loading) {
-    return <p className="text-ink-soft">Loading…</p>;
-  }
-  if (!campaign) {
+  if (loading) return <p className="text-ink-soft">Loading…</p>;
+  if (!campaign)
     return (
       <div className="card p-8 text-center">
         <p className="text-ink-soft">Campaign not found.</p>
-        <Link href="/campaigns" className="btn btn-ghost mt-4">
-          Back to campaigns
+        <Link href="/creator/dashboard" className="btn btn-ghost mt-4">
+          Back to browse
         </Link>
       </div>
     );
-  }
+
+  const ig = campaign.platform === "instagram";
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link href="/campaigns" className="text-sm text-ink-soft hover:text-ink">
-        ← All campaigns
+      <Link href="/creator/dashboard" className="text-sm text-ink-soft hover:text-ink">
+        ← Browse campaigns
       </Link>
-      <div className="mt-4 flex items-center gap-2">
-        <span className="chip capitalize">{campaign.platform}</span>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+            ig ? "bg-pink-500/10 text-pink-600" : "bg-ink/90 text-white"
+          }`}
+        >
+          {ig ? "📸 Instagram" : "🎵 TikTok"}
+        </span>
         <span className="text-sm text-ink-2">{brandName}</span>
+        <span className="text-sm text-ink-2">
+          {campaign.num_posts_required} post{campaign.num_posts_required > 1 ? "s" : ""}
+          {campaign.start_date || campaign.end_date
+            ? ` · ${campaign.start_date ?? "…"} → ${campaign.end_date ?? "…"}`
+            : ""}
+        </span>
       </div>
+
       <h1 className="mt-3 text-3xl font-bold">{campaign.title}</h1>
-      <p className="mt-4 whitespace-pre-wrap text-ink-soft">{campaign.description}</p>
-      <div className="mt-4 flex gap-3 text-sm">
-        <span className="chip">{campaign.num_posts_required} post{campaign.num_posts_required > 1 ? "s" : ""} required</span>
-        {campaign.start_date && <span className="chip">Starts {campaign.start_date}</span>}
-        {campaign.end_date && <span className="chip">Ends {campaign.end_date}</span>}
-      </div>
+      <p className="mt-3 whitespace-pre-wrap text-ink-soft">{campaign.description}</p>
 
       <div className="card mt-8 p-6">
         {existing ? (
@@ -127,11 +146,14 @@ export default function CampaignDetail() {
             <h2 className="text-lg font-semibold">Your application</h2>
             <p className="mt-2">
               Status:{" "}
-              <span className="font-semibold capitalize text-violet">{existing.status}</span>
+              <span className="font-semibold capitalize text-violet">
+                {existing.status}
+              </span>
             </p>
             {existing.status === "pending" && (
               <p className="mt-2 text-sm text-ink-soft">
-                Sit tight — the brand reviews every applicant within 24 hours.
+                You&apos;re in the queue — the brand reviews every applicant (usually
+                within 24 hours).
               </p>
             )}
             {existing.status === "approved" && (
@@ -139,12 +161,19 @@ export default function CampaignDetail() {
                 Approved! The brand will reach out with next steps.
               </p>
             )}
+            {existing.status === "rejected" && (
+              <p className="mt-2 text-sm text-ink-soft">
+                Not this time — but more campaigns are waiting.
+              </p>
+            )}
           </div>
         ) : (
           <form onSubmit={apply} className="space-y-4">
-            <h2 className="text-lg font-semibold">Apply to this campaign</h2>
+            <h2 className="text-lg font-semibold">Apply — it&apos;s one tap</h2>
             <div>
-              <label className="mb-1.5 block text-sm font-medium">Price per post (USD, optional)</label>
+              <label className="mb-1.5 block text-sm font-medium">
+                Price per post (USD, optional)
+              </label>
               <input
                 type="number"
                 min={0}
@@ -176,8 +205,4 @@ export default function CampaignDetail() {
       </div>
     </div>
   );
-}
-
-interface BrandProfileName {
-  company_name: string | null;
 }

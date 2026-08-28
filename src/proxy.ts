@@ -39,10 +39,7 @@ export async function proxy(request: NextRequest) {
 
   const isBrandOnly = path.startsWith("/brand");
   const isCreatorOnly =
-    path.startsWith("/creator") ||
-    path === "/campaigns" ||
-    path.startsWith("/campaigns") ||
-    path === "/applications";
+    path.startsWith("/creator") || path === "/applications";
 
   // Authenticated users shouldn't see the auth screens.
   if (user && (path === "/login" || path === "/signup")) {

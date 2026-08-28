@@ -51,7 +51,7 @@ export default function MyApplications() {
       ) : apps.length === 0 ? (
         <div className="card mt-8 p-8 text-center text-ink-soft">
           You haven&apos;t applied to anything yet.{" "}
-          <Link href="/campaigns" className="font-semibold text-violet">
+          <Link href="/creator/dashboard" className="font-semibold text-violet">
             Browse campaigns →
           </Link>
         </div>
