@@ -32,7 +32,7 @@ export default function LoginPage() {
       .eq("id", data.user.id)
       .single();
     const role = (prof as { role: string } | null)?.role;
-    router.push(role === "brand" ? "/dashboard" : role === "creator" ? "/campaigns" : "/dashboard");
+    router.push(role === "brand" ? "/brand/dashboard" : "/creator/dashboard");
     router.refresh();
   }
 

@@ -45,10 +45,11 @@ export function Header() {
 
   const navLinks =
     role === "brand"
-      ? [{ href: "/dashboard", label: "Campaigns" }]
+      ? [{ href: "/brand/dashboard", label: "Campaigns" }]
       : [
+          { href: "/creator/dashboard", label: "Home" },
           { href: "/campaigns", label: "Browse" },
-          { href: "/applications", label: "My applications" },
+          { href: "/applications", label: "Applications" },
         ];
 
   return (
@@ -93,8 +94,9 @@ export function Header() {
               </span>
             )}
           </Link>
-          <span className="hidden text-sm text-ink-soft sm:block">
-            {profile?.full_name}
+          <span className="hidden items-center gap-2 sm:flex">
+            <span className="chip capitalize">{role}</span>
+            <span className="text-sm font-medium">{profile?.full_name}</span>
           </span>
           <button onClick={onSignOut} className="btn btn-ghost px-3 py-1.5 text-sm">
             Sign out

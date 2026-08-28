@@ -87,7 +87,7 @@ export default function OnboardingPage() {
       setError(err.message);
       return;
     }
-    router.push(role === "brand" ? "/dashboard" : "/campaigns");
+    router.push(role === "brand" ? "/brand/dashboard" : "/creator/dashboard");
     router.refresh();
   }
 

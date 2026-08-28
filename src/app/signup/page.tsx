@@ -108,21 +108,51 @@ function SignupInner() {
       <h1 className="text-3xl font-bold">Create your account</h1>
       <p className="mt-2 text-ink-soft">Join as a brand or a creator.</p>
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        {(["brand", "creator"] as Role[]).map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => setRole(r)}
-            className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-              role === r
-                ? "border-violet bg-mist-2 text-ink"
-                : "border-ink/10 text-ink-soft hover:border-ink/20"
-            }`}
-          >
-            {r === "brand" ? "I'm a brand" : "I'm a creator"}
-          </button>
-        ))}
+      <div className="mt-6">
+        <p className="mb-2 text-sm font-medium text-ink-soft">I am a…</p>
+        <div className="grid grid-cols-2 gap-3">
+          {(
+            [
+              {
+                r: "brand",
+                icon: "🏢",
+                title: "Brand",
+                desc: "Post campaigns and hire creators",
+              },
+              {
+                r: "creator",
+                icon: "🎬",
+                title: "Creator",
+                desc: "Apply to campaigns, get paid",
+              },
+            ] as { r: Role; icon: string; title: string; desc: string }[]
+          ).map((opt) => {
+            const selected = role === opt.r;
+            return (
+              <button
+                key={opt.r}
+                type="button"
+                onClick={() => setRole(opt.r)}
+                className={`rounded-2xl border-2 p-4 text-left transition ${
+                  selected
+                    ? "border-violet bg-mist-2 shadow-pop"
+                    : "border-ink/10 hover:border-ink/25"
+                }`}
+              >
+                <div className="text-2xl">{opt.icon}</div>
+                <div className="mt-2 font-bold">{opt.title}</div>
+                <div className="mt-0.5 text-xs text-ink-soft">{opt.desc}</div>
+                <div
+                  className={`mt-3 inline-flex h-4 w-4 items-center justify-center rounded-full border-2 ${
+                    selected ? "border-violet bg-violet text-white" : "border-ink/30"
+                  }`}
+                >
+                  {selected && <span className="text-[10px]">✓</span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
