@@ -37,6 +37,13 @@ export async function proxy(request: NextRequest) {
   const role = (user?.user_metadata?.role as string | undefined) ?? null;
   const path = request.nextUrl.pathname;
 
+  // Never gate internal assets (_next/*) or API routes — otherwise the
+  // browser's request for global CSS/JS gets redirected to /login and the
+  // page renders unstyled.
+  if (path.startsWith("/_next") || path.startsWith("/api")) {
+    return supabaseResponse;
+  }
+
   const isBrandOnly = path.startsWith("/brand");
   const isCreatorOnly =
     path.startsWith("/creator") || path === "/applications";
