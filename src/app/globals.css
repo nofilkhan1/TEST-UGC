@@ -134,4 +134,19 @@
     background: var(--color-mist-2);
     color: var(--color-ink-soft);
   }
+
+  .input {
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(11, 11, 15, 0.1);
+    background: var(--color-paper);
+    padding: 0.7rem 0.9rem;
+    outline: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .input:focus {
+    border-color: var(--color-violet);
+    box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.15);
+  }
 }
