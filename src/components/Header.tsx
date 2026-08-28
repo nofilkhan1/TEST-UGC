@@ -129,7 +129,7 @@ export function Header() {
             {open && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-                <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-pop">
+                <div className="absolute right-0 z-50 mt-2 max-h-[75vh] w-[calc(100vw-2rem)] overflow-y-auto overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-pop sm:w-80">
                   <div className="flex items-center justify-between border-b border-ink/5 px-4 py-2.5">
                     <span className="text-sm font-semibold">Notifications</span>
                     {unread > 0 && (

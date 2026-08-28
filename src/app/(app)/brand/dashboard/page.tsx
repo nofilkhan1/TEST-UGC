@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Campaign, CampaignStatus } from "@/lib/types";
+import { StatusBadge } from "@/components/StatusBadge";
+import { SkeletonCards } from "@/components/Skeleton";
+import { useToast } from "@/components/providers/ToastProvider";
 
 type Filter = "all" | CampaignStatus;
 
 export default function BrandDashboard() {
   const supabase = createClient();
+  const toast = useToast();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [filter, setFilter] = useState<Filter>("all");
@@ -48,8 +52,18 @@ export default function BrandDashboard() {
   }, []);
 
   async function setStatus(id: string, status: CampaignStatus) {
-    await supabase.from("campaigns").update({ status }).eq("id", id);
-    load();
+    const prev = campaigns;
+    setCampaigns((cs) => cs.map((c) => (c.id === id ? { ...c, status } : c)));
+    const { error } = await supabase
+      .from("campaigns")
+      .update({ status })
+      .eq("id", id);
+    if (error) {
+      setCampaigns(prev);
+      toast.error("Couldn't update the campaign.");
+      return;
+    }
+    toast.success(status === "live" ? "Campaign is live 🚀" : "Campaign closed");
   }
 
   const filtered =
@@ -64,7 +78,7 @@ export default function BrandDashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Your campaigns</h1>
           <p className="mt-1 text-ink-soft">
@@ -87,7 +101,7 @@ export default function BrandDashboard() {
       )}
 
       {loading ? (
-        <p className="mt-10 text-ink-soft">Loading…</p>
+        <SkeletonCards />
       ) : campaigns.length === 0 ? (
         <div className="card mt-10 flex flex-col items-center p-12 text-center">
           <div className="text-4xl">🚀</div>
@@ -190,19 +204,6 @@ function PlatformPill({ platform }: { platform: "instagram" | "tiktok" }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    draft: "bg-mist-2 text-ink-soft",
-    live: "bg-success/15 text-success",
-    closed: "bg-ink/10 text-ink-soft",
-  };
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${map[status]}`}>
-      {status}
-    </span>
-  );
-}
-
 function NewCampaignForm({
   onClose,
   onCreated,
@@ -211,6 +212,7 @@ function NewCampaignForm({
   onCreated: () => void;
 }) {
   const supabase = createClient();
+  const toast = useToast();
   const [platform, setPlatform] = useState<"instagram" | "tiktok">("instagram");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -248,6 +250,7 @@ function NewCampaignForm({
       setError(err.message);
       return;
     }
+    toast.success("Draft saved — publish when you're ready");
     onCreated();
   }
 
@@ -313,7 +316,7 @@ function NewCampaignForm({
             placeholder="What should creators make? Tone, deliverables, must-haves…"
           />
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-sm font-medium">Posts</label>
             <input

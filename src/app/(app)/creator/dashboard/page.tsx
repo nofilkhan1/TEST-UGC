@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Campaign, Application, Profile, BrandProfile } from "@/lib/types";
+import { StatusBadge } from "@/components/StatusBadge";
+import { SkeletonCards, SkeletonRows } from "@/components/Skeleton";
 
 type Tab = "browse" | "applications";
 
@@ -132,7 +134,7 @@ export default function CreatorDashboard() {
       </div>
 
       {loading ? (
-        <p className="mt-10 text-ink-soft">Loading…</p>
+        <SkeletonCards />
       ) : tab === "browse" ? (
         campaigns.length === 0 ? (
           <div className="card mt-10 p-10 text-center text-ink-soft">
@@ -206,24 +208,11 @@ export default function CreatorDashboard() {
                   <p className="mt-1 text-xs text-ink-2">${a.price_per_post} / post</p>
                 )}
               </div>
-              <AppStatusBadge status={a.status} />
+              <StatusBadge status={a.status} />
             </Link>
           ))}
         </div>
       )}
     </div>
-  );
-}
-
-function AppStatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    pending: "bg-warning/15 text-warning",
-    approved: "bg-success/15 text-success",
-    rejected: "bg-danger/15 text-danger",
-  };
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${map[status]}`}>
-      {status}
-    </span>
   );
 }

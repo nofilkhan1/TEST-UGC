@@ -5,6 +5,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Campaign, Application, Profile, CreatorProfile } from "@/lib/types";
+import { StatusBadge } from "@/components/StatusBadge";
+import { SkeletonRows } from "@/components/Skeleton";
+import { useToast } from "@/components/providers/ToastProvider";
 
 interface ApplicantView extends Application {
   creator_name: string | null;
@@ -14,6 +17,7 @@ interface ApplicantView extends Application {
 export default function BrandCampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const supabase = createClient();
+  const toast = useToast();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [applicants, setApplicants] = useState<ApplicantView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,11 +70,27 @@ export default function BrandCampaignDetail() {
   }, [id]);
 
   async function decide(appId: string, status: "approved" | "rejected") {
-    await supabase.from("applications").update({ status }).eq("id", appId);
-    load();
+    setApplicants((list) =>
+      list.map((a) => (a.id === appId ? { ...a, status } : a)),
+    );
+    const { error } = await supabase
+      .from("applications")
+      .update({ status })
+      .eq("id", appId);
+    if (error) {
+      toast.error("Couldn't update the application.");
+      load();
+      return;
+    }
+    toast.success(status === "approved" ? "Creator approved ✅" : "Application rejected");
   }
 
-  if (loading) return <p className="text-ink-soft">Loading…</p>;
+  if (loading)
+    return (
+      <div className="space-y-3">
+        <SkeletonRows count={3} />
+      </div>
+    );
   if (!campaign)
     return (
       <div className="card p-8 text-center">
@@ -204,21 +224,5 @@ export default function BrandCampaignDetail() {
         ))}
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    draft: "bg-mist-2 text-ink-soft",
-    live: "bg-success/15 text-success",
-    closed: "bg-ink/10 text-ink-soft",
-    pending: "bg-warning/15 text-warning",
-    approved: "bg-success/15 text-success",
-    rejected: "bg-danger/15 text-danger",
-  };
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${map[status]}`}>
-      {status}
-    </span>
   );
 }

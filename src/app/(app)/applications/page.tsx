@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Application, Campaign } from "@/lib/types";
+import { StatusBadge } from "@/components/StatusBadge";
+import { SkeletonRows } from "@/components/Skeleton";
 
 export default function MyApplications() {
   const supabase = createClient();
@@ -47,7 +49,7 @@ export default function MyApplications() {
       <p className="mt-1 text-ink-soft">Track every campaign you&apos;ve applied to.</p>
 
       {loading ? (
-        <p className="mt-10 text-ink-soft">Loading…</p>
+        <SkeletonRows />
       ) : apps.length === 0 ? (
         <div className="card mt-8 p-8 text-center text-ink-soft">
           You haven&apos;t applied to anything yet.{" "}
@@ -60,7 +62,7 @@ export default function MyApplications() {
           {apps.map((a) => (
             <Link
               key={a.id}
-              href={`/campaigns/${a.campaign_id}`}
+              href={`/creator/campaigns/${a.campaign_id}`}
               className="card flex items-center justify-between p-5 transition hover:shadow-pop"
             >
               <div>
@@ -69,17 +71,7 @@ export default function MyApplications() {
                   Applied {new Date(a.created_at).toLocaleDateString()}
                 </p>
               </div>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
-                  a.status === "approved"
-                    ? "bg-success/15 text-success"
-                    : a.status === "rejected"
-                      ? "bg-danger/15 text-danger"
-                      : "bg-warning/15 text-warning"
-                }`}
-              >
-                {a.status}
-              </span>
+              <StatusBadge status={a.status} />
             </Link>
           ))}
         </div>

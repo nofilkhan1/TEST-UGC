@@ -5,10 +5,13 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Campaign, Application } from "@/lib/types";
+import { Skeleton } from "@/components/Skeleton";
+import { useToast } from "@/components/providers/ToastProvider";
 
 export default function CreatorCampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const supabase = createClient();
+  const toast = useToast();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [brandName, setBrandName] = useState<string>("A brand");
   const [existing, setExisting] = useState<Application | null>(null);
@@ -93,15 +96,27 @@ export default function CreatorCampaignDetail() {
           .eq("creator_id", user.id)
           .maybeSingle();
         setExisting((app as Application) ?? null);
+        toast.info("You've already applied to this campaign.");
         return;
       }
       setError(err.message);
+      toast.error("Couldn't submit your application.");
       return;
     }
     setExisting((data as Application) ?? null);
+    toast.success("Application sent — you're in the queue 🎉");
   }
 
-  if (loading) return <p className="text-ink-soft">Loading…</p>;
+  if (loading)
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-5 w-24 rounded-full" />
+        <Skeleton className="h-8 w-2/3" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-44 w-full rounded-2xl" />
+      </div>
+    );
   if (!campaign)
     return (
       <div className="card p-8 text-center">

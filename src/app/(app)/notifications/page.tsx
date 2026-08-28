@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Notification } from "@/lib/types";
+import { SkeletonRows } from "@/components/Skeleton";
 
 const ICON: Record<Notification["type"], string> = {
   application_received: "📥",
@@ -67,7 +68,7 @@ export default function NotificationsPage() {
       </div>
 
       {loading ? (
-        <p className="mt-10 text-ink-soft">Loading…</p>
+        <SkeletonRows />
       ) : items.length === 0 ? (
         <div className="card mt-8 p-8 text-center text-ink-soft">
           You&apos;re all caught up.

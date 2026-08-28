@@ -9,6 +9,8 @@ import type {
   Campaign,
   Application,
 } from "@/lib/types";
+import { StatusBadge } from "@/components/StatusBadge";
+import { SkeletonTable } from "@/components/Skeleton";
 
 type BrandRow = {
   id: string;
@@ -111,7 +113,7 @@ export default function AdminPage() {
     })();
   }, []);
 
-  if (loading) return <p className="text-ink-soft">Loading…</p>;
+  if (loading) return <SkeletonTable rows={6} cols={4} />;
 
   return (
     <div className="space-y-10">
@@ -138,6 +140,7 @@ export default function AdminPage() {
         title="Campaigns"
         cols={["Title", "Brand", "Status", "Applicants"]}
         rows={campaigns.map((c) => [c.title, c.brand, c.status, String(c.applicants)])}
+        badgeCol={2}
         empty="No campaigns yet."
       />
     </div>
@@ -149,18 +152,20 @@ function Table({
   cols,
   rows,
   empty,
+  badgeCol,
 }: {
   title: string;
   cols: string[];
   rows: string[][];
   empty: string;
+  badgeCol?: number;
 }) {
   return (
     <section>
       <h2 className="mb-3 text-lg font-semibold">
         {title} <span className="text-ink-2">({rows.length})</span>
       </h2>
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         {rows.length === 0 ? (
           <p className="p-6 text-center text-sm text-ink-soft">{empty}</p>
         ) : (
@@ -177,15 +182,17 @@ function Table({
             <tbody className="divide-y divide-ink/5">
               {rows.map((r, i) => (
                 <tr key={i} className="hover:bg-mist/50">
-                  {r.map((cell, j) => (
-                    <td key={j} className="px-4 py-2.5">
-                      {j === 2 && (cell === "approved" || cell === "live" || cell === "rejected") ? (
-                        <span className="capitalize">{cell}</span>
-                      ) : (
-                        cell
-                      )}
-                    </td>
-                  ))}
+                  {r.map((cell, j) =>
+                    badgeCol === j ? (
+                      <td key={j} className="px-4 py-2.5">
+                        <StatusBadge status={cell as Campaign["status"]} />
+                      </td>
+                    ) : (
+                      <td key={j} className="whitespace-nowrap px-4 py-2.5">
+                        {cell}
+                      </td>
+                    ),
+                  )}
                 </tr>
               ))}
             </tbody>
